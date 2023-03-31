@@ -1,4 +1,16 @@
 ###############################################################
+## Create Public IP
+###############################################################
+resource "azurerm_public_ip" "vm_public_ip" {
+  count               = var.vm_count
+  name                = "${var.vm_prefix}${format("%02s", count.index + 1)}-pubip"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  allocation_method   = "Dynamic"
+  tags                = var.tags
+}
+
+###############################################################
 ## Create Network Interface
 ###############################################################
 resource "azurerm_network_interface" "vm_nic" {
@@ -12,6 +24,7 @@ resource "azurerm_network_interface" "vm_nic" {
     name                          = "${var.vm_prefix}${format("%02s", count.index + 1)}-config"
     subnet_id                     = var.nic_subnet_id
     private_ip_address_allocation = "Dynamic"
+    public_ip_address_id  = "${element(azurerm_public_ip.vm_public_ip.*.id, count.index)}"
   }
 }
 
@@ -173,8 +186,8 @@ resource "azurerm_virtual_machine_data_disk_attachment" "managed_disk_1_attachme
 
 resource "azurerm_virtual_machine_data_disk_attachment" "managed_disk_2_attachment" {
   count              = element(var.vm_data_disk_size_list, 1) != "" ? "${var.vm_count}" : 0
-  managed_disk_id    = element(azurerm_managed_disk.managed_disk_2.*.id, count.index)
   virtual_machine_id = element(azurerm_linux_virtual_machine.ubuntuvm.*.id, count.index)
+  managed_disk_id    = element(azurerm_managed_disk.managed_disk_2.*.id, count.index)
   lun                = "1"
   caching            = var.vm_data_disk_caching
   depends_on         = [azurerm_linux_virtual_machine.ubuntuvm, azurerm_virtual_machine_data_disk_attachment.managed_disk_1_attachment]
